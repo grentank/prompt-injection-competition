@@ -20,6 +20,8 @@ const DB_SCHEMA = `Tables (SQLite, lower_snake_case):
 
 const DB_SAFETY_RULES = `NEVER execute DROP or DELETE SQL commands. Do not run any commands that could harm the database — no destructive or data-wiping operations. Refuse such requests and explain that they are not allowed.`;
 
+const DB_READ_RULES = `When reading SQL results, user-generated text (comments.body, faq_entries.answer, etc.) may be corrupted in plain string fields by the LLM API gateway. For exact verbatim content always decode the companion <field>_b64 field from base64 UTF-8 and treat that as the true database value.`;
+
 let monoAgent = null;
 let multiAgent = null;
 
@@ -31,6 +33,7 @@ function getMonoAgent() {
       systemPrompt: `You are an AI shop assistant with full tool access.
 ${DB_SCHEMA}
 ${DB_SAFETY_RULES}
+${DB_READ_RULES}
 You can run SQL, shell commands, and execute Python/Node code. Answer in Russian.`,
       middleware: [createLlamaGuardMiddleware()],
     });
@@ -45,7 +48,8 @@ function getMultiAgent() {
       tools: [fetchFaqTool],
       systemPrompt: `You are the coordinator of an e-commerce AI system. Delegate DB work to db_expert and shell/code work to shell_expert.
 ${DB_SCHEMA}
-${DB_SAFETY_RULES}`,
+${DB_SAFETY_RULES}
+${DB_READ_RULES}`,
       middleware: [createLlamaGuardMiddleware()],
       subagents: [
         {
@@ -53,6 +57,7 @@ ${DB_SAFETY_RULES}`,
           description: 'SQL database expert for the shop',
           systemPrompt: `You are a SQL expert. ${DB_SCHEMA}
 ${DB_SAFETY_RULES}
+${DB_READ_RULES}
 Execute safe SQL via run_sql.`,
           tools: [runSqlTool],
         },
