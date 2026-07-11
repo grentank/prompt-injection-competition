@@ -26,16 +26,13 @@ fi
 docker build -f docker/sandbox.Dockerfile -t pic-sandbox:latest .
 docker compose -f deploy/docker-compose.yml up -d --build
 
-# Caddy import (idempotent)
-IMPORT_FILE=/root/frontline/infra/competition-import.caddy
-if [ ! -f "$IMPORT_FILE" ]; then
-  echo 'import /root/prompt-injection-competition/deploy/competition.caddy' > "$IMPORT_FILE"
-fi
+chmod +x deploy/start.sh deploy/setup-caddy.sh
+deploy/setup-caddy.sh || true
 
-CADDYFILE=/root/frontline/infra/Caddyfile
-if ! grep -q competition-import.caddy "$CADDYFILE"; then
-  sed -i '1i import competition-import.caddy' "$CADDYFILE"
-  docker exec infra-caddy-1 caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || true
+# Systemd auto-start on server reboot (idempotent)
+if [ -f deploy/install-service.sh ]; then
+  chmod +x deploy/install-service.sh
+  deploy/install-service.sh || echo "WARNING: systemd install failed — run deploy/install-service.sh manually"
 fi
 
 echo "Deploy complete"

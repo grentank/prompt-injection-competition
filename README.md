@@ -51,15 +51,22 @@ git clone <repo> .
 cp deploy/.env.example deploy/.env
 # Заполнить секреты и LLM ключ
 
+./deploy/deploy.sh   # или вручную:
 docker build -f docker/sandbox.Dockerfile -t pic-sandbox:latest .
 docker compose -f deploy/docker-compose.yml up -d --build
-
-# Caddy: добавить import в НОВЫЙ файл (не удаляя старый конфиг frontline)
-# /root/frontline/infra/competition-import.caddy:
-#   import /root/prompt-injection-competition/deploy/competition.caddy
-# В начало блока temp-frontline-agent.ignorelist.com { ... } добавить:
-#   import competition-import.caddy
+./deploy/setup-caddy.sh
+./deploy/install-service.sh   # автозапуск после reboot
 ```
+
+### Автозапуск после reboot сервера
+
+```bash
+./deploy/start.sh              # ручной старт (безопасно запускать повторно)
+./deploy/install-service.sh    # один раз: systemd unit pic.service
+```
+
+Скрипт `start.sh` ждёт Docker и сеть `frontline`, поднимает `pic-master`, чинит Caddy-конфиг и перезапускает упавшие sandbox-контейнеры.
+
 
 ## Ресурсы
 

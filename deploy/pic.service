@@ -1,0 +1,16 @@
+[Unit]
+Description=Prompt Injection Competition (PIC)
+Documentation=https://github.com/grentank/prompt-injection-competition
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/root/prompt-injection-competition
+ExecStart=/root/prompt-injection-competition/deploy/start.sh
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target
