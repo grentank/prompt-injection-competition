@@ -34,27 +34,54 @@ type LiveEvent = {
   participantId?: number;
   instanceId?: string;
   eventType?: string;
+  event_type?: string;
   payload?: Record<string, unknown>;
   taskSlug?: string;
   createdAt?: string;
 };
+
+function getEventType(event: LiveEvent): string {
+  if (event.type !== 'event') return event.type;
+  return event.eventType || event.event_type || 'event';
+}
 
 function formatTime(value?: string) {
   if (!value) return '';
   return new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-function formatPayload(payload: Record<string, unknown> | undefined, eventType?: string) {
-  if (!payload || !eventType) return null;
+function formatArgs(args: unknown) {
+  if (args == null) return '{}';
+  if (typeof args === 'string') return args;
+  return JSON.stringify(args, null, 2);
+}
 
-  if (eventType === 'prompt_sent' && typeof payload.text === 'string') {
-    return payload.text;
+function describeEvent(event: LiveEvent): { summary: string; details: string | null; tone: 'tool' | 'prompt' | 'default' } {
+  const eventType = getEventType(event);
+  const payload = event.payload || {};
+
+  if (event.type === 'task_completed') {
+    return { summary: `задача решена: ${event.taskSlug || ''}`, details: null, tone: 'default' };
+  }
+  if (event.type === 'instance_restarted') {
+    return { summary: `песочница перезапущена ${event.instanceId?.slice(0, 8) || ''}`, details: null, tone: 'default' };
+  }
+  if (event.type === 'task_manual_update') {
+    return { summary: 'ручное изменение задачи', details: null, tone: 'default' };
   }
 
   if (eventType === 'tool_call') {
-    const tool = typeof payload.tool === 'string' ? payload.tool : 'unknown_tool';
-    const args = payload.args ?? {};
-    return `${tool}(${JSON.stringify(args)})`;
+    const tool = String(payload.tool || payload.name || 'unknown_tool');
+    const args = payload.args ?? payload.input ?? {};
+    return {
+      summary: tool,
+      details: formatArgs(args),
+      tone: 'tool',
+    };
+  }
+
+  if (eventType === 'prompt_sent' && typeof payload.text === 'string') {
+    return { summary: 'промпт', details: payload.text, tone: 'prompt' };
   }
 
   if (eventType === 'sql_executed') {
@@ -62,25 +89,25 @@ function formatPayload(payload: Record<string, unknown> | undefined, eventType?:
     if (payload.command) parts.push(String(payload.command));
     if (payload.query) parts.push(String(payload.query));
     if (payload.rowCount != null) parts.push(`rows=${payload.rowCount}`);
-    return parts.join(' · ') || null;
+    return { summary: 'SQL', details: parts.join('\n') || null, tone: 'default' };
   }
 
   if (eventType === 'code_executed' && payload.code) {
-    return String(payload.code);
+    return { summary: 'code', details: String(payload.code), tone: 'default' };
   }
 
   if (eventType === 'xss_payload' && payload.content) {
-    return String(payload.content);
+    return { summary: 'xss', details: String(payload.content), tone: 'default' };
   }
 
   const keys = Object.keys(payload);
-  if (!keys.length) return null;
-  return JSON.stringify(payload, null, 2);
+  if (!keys.length) return { summary: eventType, details: null, tone: 'default' };
+  return { summary: eventType, details: JSON.stringify(payload, null, 2), tone: 'default' };
 }
 
 function eventKey(event: LiveEvent) {
   if (event.id != null) return `db-${event.id}`;
-  return `${event.type}-${event.participantId}-${event.eventType}-${event.createdAt}-${JSON.stringify(event.payload || {})}`;
+  return `${event.type}-${event.participantId}-${getEventType(event)}-${event.createdAt}-${JSON.stringify(event.payload || {})}`;
 }
 
 function mergeEvents(existing: LiveEvent[], incoming: LiveEvent[]) {
@@ -101,38 +128,10 @@ function normalizeDbEvent(event: LiveEvent): LiveEvent {
     type: 'event',
     participantId: event.participantId,
     instanceId: event.instanceId,
-    eventType: event.eventType,
+    eventType: event.eventType || event.event_type,
     payload: event.payload,
     createdAt: event.createdAt,
   };
-}
-
-function renderEventBody(event: LiveEvent) {
-  if (event.type === 'task_completed') {
-    return <span className="text-green-400">задача решена: {event.taskSlug}</span>;
-  }
-  if (event.type === 'instance_restarted') {
-    return <span className="text-amber-400">песочница перезапущена {event.instanceId?.slice(0, 8)}</span>;
-  }
-  if (event.type === 'task_manual_update') {
-    return <span className="text-zinc-400">ручное изменение задачи</span>;
-  }
-
-  const details = formatPayload(event.payload, event.eventType);
-  if (!details) return null;
-
-  const isTool = event.eventType === 'tool_call';
-  const isPrompt = event.eventType === 'prompt_sent';
-
-  return (
-    <pre
-      className={`mt-1 whitespace-pre-wrap break-words ${
-        isTool ? 'text-amber-300' : isPrompt ? 'text-zinc-200' : 'text-zinc-400'
-      }`}
-    >
-      {details}
-    </pre>
-  );
 }
 
 export default function AdminPage() {
@@ -291,18 +290,45 @@ export default function AdminPage() {
               <h2 className="font-semibold">Live Events</h2>
               <span className="text-xs text-zinc-500">{events.length} записей</span>
             </div>
-            <div className="h-[32rem] overflow-y-auto text-xs space-y-2 font-mono">
-              {events.map((e) => (
-                <div key={eventKey(e)} className="text-zinc-400 border-b border-zinc-800 pb-2">
-                  <div className="flex flex-wrap gap-x-2 gap-y-1 items-center">
-                    {e.createdAt && <span className="text-zinc-600">{formatTime(e.createdAt)}</span>}
-                    <span className="text-cyan-600">{e.eventType || e.type}</span>
-                    {e.participantId && <span>p#{e.participantId}</span>}
-                    {e.taskSlug && <span className="text-green-500">✓{e.taskSlug}</span>}
+            <div className="h-[32rem] overflow-y-auto text-xs space-y-2">
+              {events.map((e) => {
+                const eventType = getEventType(e);
+                const { summary, details, tone } = describeEvent(e);
+                const isTool = eventType === 'tool_call';
+
+                return (
+                  <div key={eventKey(e)} className="border border-zinc-800 rounded-lg p-2 bg-zinc-950">
+                    <div className="flex flex-wrap gap-x-2 gap-y-1 items-center font-mono">
+                      {e.createdAt && <span className="text-zinc-600">{formatTime(e.createdAt)}</span>}
+                      <span className={`font-semibold ${isTool ? 'text-amber-400' : 'text-cyan-500'}`}>{eventType}</span>
+                      {e.participantId && <span className="text-zinc-500">p#{e.participantId}</span>}
+                      {e.taskSlug && <span className="text-green-500">✓{e.taskSlug}</span>}
+                      {isTool && <span className="text-amber-300">→ {summary}</span>}
+                    </div>
+
+                    {isTool && details && (
+                      <div className="mt-2">
+                        <p className="text-zinc-500 mb-1">arguments:</p>
+                        <pre className="text-amber-100 whitespace-pre-wrap break-words bg-zinc-900 border border-zinc-800 rounded p-2">{details}</pre>
+                      </div>
+                    )}
+
+                    {!isTool && details && (
+                      <pre
+                        className={`mt-2 whitespace-pre-wrap break-words bg-zinc-900 border border-zinc-800 rounded p-2 ${
+                          tone === 'prompt' ? 'text-zinc-200' : 'text-zinc-400'
+                        }`}
+                      >
+                        {details}
+                      </pre>
+                    )}
+
+                    {!isTool && !details && summary && e.type !== 'event' && (
+                      <p className="mt-2 text-zinc-400">{summary}</p>
+                    )}
                   </div>
-                  {renderEventBody(e)}
-                </div>
-              ))}
+                );
+              })}
               {!events.length && <p className="text-zinc-600">Событий пока нет</p>}
             </div>
           </div>

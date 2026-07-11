@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { marked } from 'marked';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
-const MAX_INPUT_HEIGHT = 160;
+const MIN_INPUT_HEIGHT = 44;
+const MAX_INPUT_HEIGHT = 220;
 
 export default function ChatPanel({ instanceId }: { instanceId: string }) {
   const [open, setOpen] = useState(true);
@@ -15,15 +16,16 @@ export default function ChatPanel({ instanceId }: { instanceId: string }) {
   const assistantBuf = useRef('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  function adjustTextareaHeight() {
+  function resizeTextarea() {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, MAX_INPUT_HEIGHT)}px`;
+    const nextHeight = Math.max(MIN_INPUT_HEIGHT, Math.min(el.scrollHeight, MAX_INPUT_HEIGHT));
+    el.style.height = `${nextHeight}px`;
   }
 
-  useEffect(() => {
-    adjustTextareaHeight();
+  useLayoutEffect(() => {
+    resizeTextarea();
   }, [input]);
 
   async function send() {
@@ -129,11 +131,12 @@ export default function ChatPanel({ instanceId }: { instanceId: string }) {
       <div className="p-3 border-t border-zinc-800 flex gap-2 items-end">
         <textarea
           ref={textareaRef}
-          rows={1}
-          className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm resize-none overflow-y-auto leading-relaxed"
+          className="chat-input flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm resize-none overflow-y-auto leading-relaxed min-h-11 max-h-56"
+          style={{ height: `${MIN_INPUT_HEIGHT}px`, fieldSizing: 'content' }}
           placeholder="Сообщение агенту... (Enter — отправить, Shift+Enter — новая строка)"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onInput={resizeTextarea}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
