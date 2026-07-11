@@ -1,0 +1,33 @@
+services:
+  master:
+    build:
+      context: ..
+      dockerfile: docker/master.Dockerfile
+    container_name: pic-master
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - master_data:/data
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DB_PATH=/data/master.sqlite
+      - SANDBOX_IMAGE=pic-sandbox:latest
+      - SANDBOX_NETWORK=pic-network
+    networks:
+      - pic-network
+      - frontline
+
+networks:
+  pic-network:
+    name: pic-network
+    driver: bridge
+  frontline:
+    external: true
+
+volumes:
+  master_data:

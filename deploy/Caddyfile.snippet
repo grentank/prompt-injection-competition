@@ -1,0 +1,35 @@
+temp-frontline-agent.ignorelist.com {
+	handle /assets/* {
+		reverse_proxy pic-master:4000
+	}
+	handle /instance/* {
+		reverse_proxy pic-master:4000
+	}
+	handle /admin* {
+		reverse_proxy pic-master:4000
+	}
+	handle /api/* {
+		reverse_proxy pic-master:4000
+	}
+	handle /ws/* {
+		reverse_proxy pic-master:4000
+	}
+	handle /login {
+		reverse_proxy pic-master:4000
+	}
+	handle /register {
+		reverse_proxy pic-master:4000
+	}
+	handle / {
+		reverse_proxy pic-master:4000
+	}
+	handle /api/v1/webhooks/chatwoot* {
+		reverse_proxy frontline-gateway:8000
+	}
+	handle /auth/* {
+		reverse_proxy frontline-auth-gateway:8000
+	}
+	handle {
+		respond "frontline edge" 200
+	}
+}

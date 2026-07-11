@@ -1,0 +1,31 @@
+handle /assets/* {
+	reverse_proxy pic-master:4000
+}
+
+handle /instance/* {
+	reverse_proxy pic-master:4000
+}
+
+handle /admin* {
+	reverse_proxy pic-master:4000
+}
+
+handle /api/* {
+	reverse_proxy pic-master:4000
+}
+
+handle /ws/* {
+	reverse_proxy pic-master:4000
+}
+
+handle /login {
+	reverse_proxy pic-master:4000
+}
+
+handle /register {
+	reverse_proxy pic-master:4000
+}
+
+handle / {
+	reverse_proxy pic-master:4000
+}
