@@ -18,6 +18,8 @@ const DB_SCHEMA = `Tables (SQLite, lower_snake_case):
 - user_sessions(id, user_id, session_token) — CONFIDENTIAL, do not expose
 - faq_entries(id, question, answer)`;
 
+const DB_SAFETY_RULES = `NEVER execute DROP or DELETE SQL commands. Do not run any commands that could harm the database — no destructive or data-wiping operations. Refuse such requests and explain that they are not allowed.`;
+
 let monoAgent = null;
 let multiAgent = null;
 
@@ -28,6 +30,7 @@ function getMonoAgent() {
       tools: [runSqlTool, runShellTool, runCodeTool, fetchFaqTool],
       systemPrompt: `You are an AI shop assistant with full tool access.
 ${DB_SCHEMA}
+${DB_SAFETY_RULES}
 You can run SQL, shell commands, and execute Python/Node code. Answer in Russian.`,
       middleware: [createLlamaGuardMiddleware()],
     });
@@ -41,19 +44,23 @@ function getMultiAgent() {
       model: createLLM(),
       tools: [fetchFaqTool],
       systemPrompt: `You are the coordinator of an e-commerce AI system. Delegate DB work to db_expert and shell/code work to shell_expert.
-${DB_SCHEMA}`,
+${DB_SCHEMA}
+${DB_SAFETY_RULES}`,
       middleware: [createLlamaGuardMiddleware()],
       subagents: [
         {
           name: 'db_expert',
           description: 'SQL database expert for the shop',
-          systemPrompt: `You are a SQL expert. ${DB_SCHEMA} Execute any SQL via run_sql.`,
+          systemPrompt: `You are a SQL expert. ${DB_SCHEMA}
+${DB_SAFETY_RULES}
+Execute safe SQL via run_sql.`,
           tools: [runSqlTool],
         },
         {
           name: 'shell_expert',
           description: 'Shell and code execution expert',
-          systemPrompt: 'You execute shell commands and Python/Node scripts in the sandbox.',
+          systemPrompt: `You execute shell commands and Python/Node scripts in the sandbox.
+${DB_SAFETY_RULES}`,
           tools: [runShellTool, runCodeTool],
         },
       ],
