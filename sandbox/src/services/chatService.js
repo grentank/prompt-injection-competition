@@ -23,13 +23,14 @@ async function* streamChatEvents({ messages, text, agentMode = 'mono' }) {
   const lcMessages = toLangchainMessages(messages);
   lcMessages.push(new HumanMessage(text));
 
-  await reportEvent('prompt_sent', { text, agentMode });
+  await reportEvent('prompt_sent', { text, agentMode, runId });
 
   yield { event: 'run_start', data: { runId, input: text, agentMode } };
 
   const agent = getAgent(agentMode);
   let toolCallCount = 0;
   let finalContent = null;
+  const reportedToolCalls = new Set();
 
   try {
     const stream = await agent.stream(
@@ -58,15 +59,19 @@ async function* streamChatEvents({ messages, text, agentMode = 'mono' }) {
           for (const msg of msgs) {
             if (msg?.tool_calls?.length) {
               for (const tc of msg.tool_calls) {
+                const dedupeKey = tc.id || `${tc.name}:${JSON.stringify(tc.args || {})}`;
+                if (reportedToolCalls.has(dedupeKey)) continue;
+                reportedToolCalls.add(dedupeKey);
+
                 toolCallCount += 1;
                 yield {
                   event: 'tool_call',
-                  data: { agent: agentMode, tool: tc.name, args: tc.args, id: tc.id },
+                  data: { agent: agentMode, tool: tc.name, args: tc.args, id: tc.id, runId },
                 };
-                await reportEvent('tool_call', { tool: tc.name, args: tc.args });
+                await reportEvent('tool_call', { tool: tc.name, args: tc.args, runId });
 
                 if (toolCallCount >= TOOL_THRESHOLD) {
-                  await reportEvent('unbounded_tools', { count: toolCallCount });
+                  await reportEvent('unbounded_tools', { count: toolCallCount, runId });
                 }
               }
             }

@@ -21,6 +21,28 @@ const TASK_SLUGS = {
 };
 
 const guardrailState = new Map();
+const recentEvents = new Map();
+const EVENT_DEDUP_MS = 15_000;
+
+function eventDedupeKey(participantId, eventType, payload) {
+  return `${participantId || 'none'}:${eventType}:${JSON.stringify(payload || {})}`;
+}
+
+function shouldSkipDuplicateEvent(participantId, eventType, payload) {
+  const key = eventDedupeKey(participantId, eventType, payload);
+  const now = Date.now();
+  const lastSeen = recentEvents.get(key);
+  if (lastSeen && now - lastSeen < EVENT_DEDUP_MS) return true;
+  recentEvents.set(key, now);
+
+  if (recentEvents.size > 2000) {
+    for (const [k, ts] of recentEvents) {
+      if (now - ts > EVENT_DEDUP_MS) recentEvents.delete(k);
+    }
+  }
+
+  return false;
+}
 
 async function getTaskBySlug(slug) {
   return Task.findOne({ where: { slug } });
@@ -59,6 +81,10 @@ async function getEventHistory() {
 }
 
 async function ingestEvent({ participant_id, instance_id, event_type, payload }) {
+  if (shouldSkipDuplicateEvent(participant_id, event_type, payload)) {
+    return;
+  }
+
   const event = await Event.create({
     participant_id,
     instance_id,

@@ -15,6 +15,8 @@ export default function ChatPanel({ instanceId }: { instanceId: string }) {
   const [streaming, setStreaming] = useState(false);
   const assistantBuf = useRef('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sendInFlight = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   function resizeTextarea() {
     const el = textareaRef.current;
@@ -29,7 +31,9 @@ export default function ChatPanel({ instanceId }: { instanceId: string }) {
   }, [input]);
 
   async function send() {
-    if (!input.trim() || streaming) return;
+    if (!input.trim() || streaming || sendInFlight.current) return;
+
+    sendInFlight.current = true;
     const text = input.trim();
     setInput('');
     const history = [...messages, { role: 'user' as const, content: text }];
@@ -37,49 +41,74 @@ export default function ChatPanel({ instanceId }: { instanceId: string }) {
     setStreaming(true);
     assistantBuf.current = '';
 
+    abortRef.current?.abort();
+    const abortController = new AbortController();
+    abortRef.current = abortController;
+
     const url = `/instance/${instanceId}/api/chat/stream`;
 
-    await fetchEventSource(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, messages: history.slice(0, -1), agent_mode: agentMode }),
-      onmessage(ev) {
-        if (!ev.data) return;
-        const data = JSON.parse(ev.data);
-        if (ev.event === 'llm_delta' && data.chunk) {
-          assistantBuf.current += data.chunk;
-          setMessages((prev) => {
-            const copy = [...prev];
-            const last = copy[copy.length - 1];
-            if (last?.role === 'assistant') {
-              copy[copy.length - 1] = { role: 'assistant', content: assistantBuf.current };
-            } else {
-              copy.push({ role: 'assistant', content: assistantBuf.current });
-            }
-            return copy;
-          });
-        }
-        if (ev.event === 'final_message') {
-          assistantBuf.current = data.content || assistantBuf.current;
-          setMessages((prev) => {
-            const copy = [...prev];
-            if (copy[copy.length - 1]?.role === 'assistant') {
-              copy[copy.length - 1] = { role: 'assistant', content: assistantBuf.current };
-            } else {
-              copy.push({ role: 'assistant', content: assistantBuf.current });
-            }
-            return copy;
-          });
-        }
-      },
-      onclose() {
-        setStreaming(false);
-      },
-      onerror() {
-        setStreaming(false);
-        throw new Error('SSE error');
-      },
-    });
+    try {
+      await fetchEventSource(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, messages: history.slice(0, -1), agent_mode: agentMode }),
+        signal: abortController.signal,
+        openWhenHidden: true,
+        async onopen(response) {
+          if (!response.ok) {
+            throw new Error(`Chat stream failed: HTTP ${response.status}`);
+          }
+          const contentType = response.headers.get('content-type') || '';
+          if (!contentType.includes('text/event-stream')) {
+            throw new Error(`Unexpected content-type: ${contentType}`);
+          }
+        },
+        onmessage(ev) {
+          if (!ev.data) return;
+          const data = JSON.parse(ev.data);
+          if (ev.event === 'llm_delta' && data.chunk) {
+            assistantBuf.current += data.chunk;
+            setMessages((prev) => {
+              const copy = [...prev];
+              const last = copy[copy.length - 1];
+              if (last?.role === 'assistant') {
+                copy[copy.length - 1] = { role: 'assistant', content: assistantBuf.current };
+              } else {
+                copy.push({ role: 'assistant', content: assistantBuf.current });
+              }
+              return copy;
+            });
+          }
+          if (ev.event === 'final_message') {
+            assistantBuf.current = data.content || assistantBuf.current;
+            setMessages((prev) => {
+              const copy = [...prev];
+              if (copy[copy.length - 1]?.role === 'assistant') {
+                copy[copy.length - 1] = { role: 'assistant', content: assistantBuf.current };
+              } else {
+                copy.push({ role: 'assistant', content: assistantBuf.current });
+              }
+              return copy;
+            });
+          }
+        },
+        onclose() {
+          setStreaming(false);
+        },
+        onerror(err) {
+          setStreaming(false);
+          throw err;
+        },
+      });
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        console.error('Chat stream error:', err);
+      }
+    } finally {
+      sendInFlight.current = false;
+      setStreaming(false);
+      requestAnimationFrame(resizeTextarea);
+    }
   }
 
   if (!open) {
@@ -140,13 +169,13 @@ export default function ChatPanel({ instanceId }: { instanceId: string }) {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
-              send();
+              void send();
             }
           }}
           disabled={streaming}
         />
         <button
-          onClick={send}
+          onClick={() => void send()}
           disabled={streaming}
           className="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded-lg text-sm disabled:opacity-50 shrink-0"
         >
