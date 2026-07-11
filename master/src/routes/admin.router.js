@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
-const { getParticipantStats, markTaskComplete } = require('../services/eventService');
+const { getParticipantStats, getEventHistory, markTaskComplete } = require('../services/eventService');
 const { restartSandbox, getInstanceTarget } = require('../services/dockerService');
 const { Task, TaskCompletion, Instance } = require('../../db/models');
 const { broadcastAdmin } = require('../ws/adminWs');
@@ -12,6 +12,11 @@ adminRouter.use(authMiddleware, adminMiddleware);
 adminRouter.get('/participants', async (_req, res) => {
   const stats = await getParticipantStats();
   res.json({ participants: stats });
+});
+
+adminRouter.get('/events', async (_req, res) => {
+  const events = await getEventHistory();
+  res.json({ events });
 });
 
 adminRouter.get('/tasks', async (_req, res) => {

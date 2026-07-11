@@ -1,8 +1,10 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { marked } from 'marked';
 
 type Message = { role: 'user' | 'assistant'; content: string };
+
+const MAX_INPUT_HEIGHT = 160;
 
 export default function ChatPanel({ instanceId }: { instanceId: string }) {
   const [open, setOpen] = useState(true);
@@ -11,6 +13,18 @@ export default function ChatPanel({ instanceId }: { instanceId: string }) {
   const [agentMode, setAgentMode] = useState<'mono' | 'multi'>('mono');
   const [streaming, setStreaming] = useState(false);
   const assistantBuf = useRef('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function adjustTextareaHeight() {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, MAX_INPUT_HEIGHT)}px`;
+  }
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [input]);
 
   async function send() {
     if (!input.trim() || streaming) return;
@@ -107,24 +121,31 @@ export default function ChatPanel({ instanceId }: { instanceId: string }) {
                 dangerouslySetInnerHTML={{ __html: marked.parse(m.content) as string }}
               />
             ) : (
-              m.content
+              <p className="whitespace-pre-wrap break-words">{m.content}</p>
             )}
           </div>
         ))}
       </div>
-      <div className="p-3 border-t border-zinc-800 flex gap-2">
-        <input
-          className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm"
-          placeholder="Сообщение агенту..."
+      <div className="p-3 border-t border-zinc-800 flex gap-2 items-end">
+        <textarea
+          ref={textareaRef}
+          rows={1}
+          className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm resize-none overflow-y-auto leading-relaxed"
+          placeholder="Сообщение агенту... (Enter — отправить, Shift+Enter — новая строка)"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
           disabled={streaming}
         />
         <button
           onClick={send}
           disabled={streaming}
-          className="bg-cyan-600 hover:bg-cyan-500 px-4 rounded-lg text-sm disabled:opacity-50"
+          className="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded-lg text-sm disabled:opacity-50 shrink-0"
         >
           →
         </button>

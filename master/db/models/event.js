@@ -7,7 +7,7 @@ module.exports = (sequelize, DataTypes) => {
       event_type: DataTypes.STRING,
       payload_json: DataTypes.TEXT,
     },
-    { tableName: 'events', underscored: true, updatedAt: false },
+    { tableName: 'events', underscored: true, updatedAt: false, createdAt: 'created_at' },
   );
   return Event;
 };

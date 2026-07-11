@@ -43,8 +43,23 @@ async function markTaskComplete(participantId, slug, autoDetected = true) {
   return completion;
 }
 
+async function getEventHistory() {
+  const events = await Event.findAll({
+    order: [['created_at', 'DESC']],
+  });
+
+  return events.map((e) => ({
+    id: e.id,
+    participantId: e.participant_id,
+    instanceId: e.instance_id,
+    eventType: e.event_type,
+    payload: JSON.parse(e.payload_json || '{}'),
+    createdAt: e.created_at,
+  }));
+}
+
 async function ingestEvent({ participant_id, instance_id, event_type, payload }) {
-  await Event.create({
+  const event = await Event.create({
     participant_id,
     instance_id,
     event_type,
@@ -66,10 +81,12 @@ async function ingestEvent({ participant_id, instance_id, event_type, payload })
 
   broadcastAdmin({
     type: 'event',
+    id: event.id,
     participantId: participant_id,
     instanceId: instance_id,
     eventType: event_type,
     payload,
+    createdAt: event.created_at,
   });
 }
 
@@ -194,4 +211,4 @@ async function getParticipantStats() {
   return results;
 }
 
-module.exports = { ingestEvent, markTaskComplete, getParticipantStats, TASK_SLUGS };
+module.exports = { ingestEvent, getEventHistory, markTaskComplete, getParticipantStats, TASK_SLUGS };

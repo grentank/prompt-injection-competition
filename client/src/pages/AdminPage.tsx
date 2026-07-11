@@ -29,12 +29,111 @@ type Participant = {
 };
 
 type LiveEvent = {
+  id?: number;
   type: string;
   participantId?: number;
+  instanceId?: string;
   eventType?: string;
   payload?: Record<string, unknown>;
   taskSlug?: string;
+  createdAt?: string;
 };
+
+function formatTime(value?: string) {
+  if (!value) return '';
+  return new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function formatPayload(payload: Record<string, unknown> | undefined, eventType?: string) {
+  if (!payload || !eventType) return null;
+
+  if (eventType === 'prompt_sent' && typeof payload.text === 'string') {
+    return payload.text;
+  }
+
+  if (eventType === 'tool_call') {
+    const tool = typeof payload.tool === 'string' ? payload.tool : 'unknown_tool';
+    const args = payload.args ?? {};
+    return `${tool}(${JSON.stringify(args)})`;
+  }
+
+  if (eventType === 'sql_executed') {
+    const parts = [];
+    if (payload.command) parts.push(String(payload.command));
+    if (payload.query) parts.push(String(payload.query));
+    if (payload.rowCount != null) parts.push(`rows=${payload.rowCount}`);
+    return parts.join(' · ') || null;
+  }
+
+  if (eventType === 'code_executed' && payload.code) {
+    return String(payload.code);
+  }
+
+  if (eventType === 'xss_payload' && payload.content) {
+    return String(payload.content);
+  }
+
+  const keys = Object.keys(payload);
+  if (!keys.length) return null;
+  return JSON.stringify(payload, null, 2);
+}
+
+function eventKey(event: LiveEvent) {
+  if (event.id != null) return `db-${event.id}`;
+  return `${event.type}-${event.participantId}-${event.eventType}-${event.createdAt}-${JSON.stringify(event.payload || {})}`;
+}
+
+function mergeEvents(existing: LiveEvent[], incoming: LiveEvent[]) {
+  const map = new Map<string, LiveEvent>();
+  for (const event of [...existing, ...incoming]) {
+    map.set(eventKey(event), event);
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tb - ta;
+  });
+}
+
+function normalizeDbEvent(event: LiveEvent): LiveEvent {
+  return {
+    id: event.id,
+    type: 'event',
+    participantId: event.participantId,
+    instanceId: event.instanceId,
+    eventType: event.eventType,
+    payload: event.payload,
+    createdAt: event.createdAt,
+  };
+}
+
+function renderEventBody(event: LiveEvent) {
+  if (event.type === 'task_completed') {
+    return <span className="text-green-400">задача решена: {event.taskSlug}</span>;
+  }
+  if (event.type === 'instance_restarted') {
+    return <span className="text-amber-400">песочница перезапущена {event.instanceId?.slice(0, 8)}</span>;
+  }
+  if (event.type === 'task_manual_update') {
+    return <span className="text-zinc-400">ручное изменение задачи</span>;
+  }
+
+  const details = formatPayload(event.payload, event.eventType);
+  if (!details) return null;
+
+  const isTool = event.eventType === 'tool_call';
+  const isPrompt = event.eventType === 'prompt_sent';
+
+  return (
+    <pre
+      className={`mt-1 whitespace-pre-wrap break-words ${
+        isTool ? 'text-amber-300' : isPrompt ? 'text-zinc-200' : 'text-zinc-400'
+      }`}
+    >
+      {details}
+    </pre>
+  );
+}
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -62,14 +161,22 @@ export default function AdminPage() {
     setParticipants(data.participants);
   }
 
+  async function loadEvents() {
+    const { data } = await api.get('/api/admin/events', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setEvents((prev) => mergeEvents(prev, data.events.map(normalizeDbEvent)));
+  }
+
   useEffect(() => {
     if (!token) return;
     loadParticipants();
+    loadEvents();
     const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/admin?token=${token}`);
     wsRef.current = ws;
     ws.onmessage = (ev) => {
       const msg = JSON.parse(ev.data) as LiveEvent;
-      setEvents((prev) => [msg, ...prev].slice(0, 100));
+      setEvents((prev) => mergeEvents(prev, [msg]));
       if (msg.type === 'task_completed' || msg.type === 'event' || msg.type === 'instance_restarted') {
         loadParticipants();
       }
@@ -130,18 +237,21 @@ export default function AdminPage() {
           <h2 className="font-semibold text-lg">Участники</h2>
           {participants.map((p) => (
             <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-              <div className="flex justify-between items-start">
-                <div>
+              <div className="flex justify-between items-start gap-4">
+                <div className="min-w-0 flex-1">
                   <p className="font-bold">{p.nickname}</p>
                   <p className="text-xs text-zinc-500 mt-1">
                     {p.solvedCount}/{p.totalTasks} задач · {p.promptCount} промптов · ↻{p.restartCount}
                     {p.productsCount != null && ` · ${p.productsCount} товаров · avg ${Number(p.avgPrice || 0).toFixed(0)}₽`}
                   </p>
-                  <p className="text-xs text-zinc-600 mt-1 truncate max-w-md">
-                    Последний промпт: {p.lastPrompt || '—'}
-                  </p>
+                  <div className="mt-2">
+                    <p className="text-xs text-zinc-500 mb-1">Последний промпт:</p>
+                    <p className="text-sm text-zinc-300 whitespace-pre-wrap break-words bg-zinc-950 border border-zinc-800 rounded-lg p-2">
+                      {p.lastPrompt || '—'}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 shrink-0">
                   {p.instanceId && (
                     <button
                       onClick={() => restartInstance(p.instanceId!)}
@@ -177,16 +287,23 @@ export default function AdminPage() {
 
         <div className="space-y-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-            <h2 className="font-semibold mb-3">Live Events</h2>
-            <div className="h-64 overflow-y-auto text-xs space-y-1 font-mono">
-              {events.map((e, i) => (
-                <div key={i} className="text-zinc-400 border-b border-zinc-800 pb-1">
-                  <span className="text-cyan-600">{e.type}</span>
-                  {e.participantId && <span> p#{e.participantId}</span>}
-                  {e.eventType && <span> {e.eventType}</span>}
-                  {e.taskSlug && <span> ✓{e.taskSlug}</span>}
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="font-semibold">Live Events</h2>
+              <span className="text-xs text-zinc-500">{events.length} записей</span>
+            </div>
+            <div className="h-[32rem] overflow-y-auto text-xs space-y-2 font-mono">
+              {events.map((e) => (
+                <div key={eventKey(e)} className="text-zinc-400 border-b border-zinc-800 pb-2">
+                  <div className="flex flex-wrap gap-x-2 gap-y-1 items-center">
+                    {e.createdAt && <span className="text-zinc-600">{formatTime(e.createdAt)}</span>}
+                    <span className="text-cyan-600">{e.eventType || e.type}</span>
+                    {e.participantId && <span>p#{e.participantId}</span>}
+                    {e.taskSlug && <span className="text-green-500">✓{e.taskSlug}</span>}
+                  </div>
+                  {renderEventBody(e)}
                 </div>
               ))}
+              {!events.length && <p className="text-zinc-600">Событий пока нет</p>}
             </div>
           </div>
 
