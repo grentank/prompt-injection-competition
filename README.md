@@ -54,7 +54,7 @@ cp deploy/.env.example deploy/.env
 ./deploy/remote-deploy.sh
 ```
 
-Пуш в `main` запускает `.github/workflows/deploy.yml`: Actions заходит по SSH и выполняет `deploy/remote-deploy.sh`. Секреты репозитория: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_GITHUB_TOKEN`.
+Пуш в `main` запускает `.github/workflows/deploy.yml`: Actions заходит по SSH и выполняет `deploy/remote-deploy.sh`. Секреты репозитория: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`. Репозиторий публичный, сервер делает `git fetch` без токена.
 
 Сайт слушает HTTP на порту 80 (Caddy → `pic-master:4000`). HTTPS не обязателен: для `*.chickenkiller.com` Let's Encrypt часто упирается в лимит сертификатов.
 
