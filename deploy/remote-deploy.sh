@@ -10,6 +10,30 @@ if [ ! -f deploy/.env ]; then
   echo "WARNING: deploy/.env created from example — set LLM_PROVIDER_API_KEY"
 fi
 
+python3 - <<'PY'
+import os
+from pathlib import Path
+path = Path("deploy/.env")
+text = path.read_text() if path.exists() else ""
+lines = text.splitlines()
+def upsert(key, value):
+    global lines
+    if not value:
+        return
+    prefix = key + "="
+    for i, line in enumerate(lines):
+        if line.startswith(prefix):
+            lines[i] = prefix + value
+            return
+    lines.append(prefix + value)
+upsert("LLM_PROVIDER_API_KEY", os.environ.get("LLM_API_KEY") or os.environ.get("LLM_PROVIDER_API_KEY") or "")
+upsert("LLM_PROVIDER_BASE_URL", os.environ.get("LLM_BASEURL") or os.environ.get("LLM_PROVIDER_BASE_URL") or "")
+upsert("LLM_API_KEY", os.environ.get("LLM_API_KEY") or "")
+upsert("LLM_BASEURL", os.environ.get("LLM_BASEURL") or "")
+path.write_text("\n".join(lines) + "\n")
+print("LLM env synced into deploy/.env")
+PY
+
 docker network inspect pic-network >/dev/null 2>&1 || docker network create pic-network
 
 echo "==> Building sandbox image"

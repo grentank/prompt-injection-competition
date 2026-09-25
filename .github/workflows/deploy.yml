@@ -24,8 +24,10 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASEURL: ${{ secrets.LLM_BASEURL }}
         run: |
-          ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" 'bash -s' <<'EOF'
+          ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" "LLM_API_KEY='${LLM_API_KEY}' LLM_BASEURL='${LLM_BASEURL}' bash -s" <<'EOF'
           set -euo pipefail
           export GIT_TERMINAL_PROMPT=0
           repo=https://github.com/grentank/prompt-injection-competition.git
