@@ -1,0 +1,42 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy on server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          GH_TOKEN: ${{ secrets.DEPLOY_GITHUB_TOKEN }}
+        run: |
+          ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" "GH_TOKEN='${GH_TOKEN}' bash -s" <<'EOF'
+          set -euo pipefail
+          export GIT_TERMINAL_PROMPT=0
+          repo=https://github.com/grentank/prompt-injection-competition.git
+          if [ ! -d /root/prompt-injection-competition/.git ]; then
+            git -c http.extraheader="AUTHORIZATION: bearer ${GH_TOKEN}" clone "$repo" /root/prompt-injection-competition
+          fi
+          cd /root/prompt-injection-competition
+          git remote set-url origin "$repo"
+          git -c http.extraheader="AUTHORIZATION: bearer ${GH_TOKEN}" fetch origin main
+          git reset --hard origin/main
+          chmod +x deploy/remote-deploy.sh
+          ./deploy/remote-deploy.sh
+          EOF

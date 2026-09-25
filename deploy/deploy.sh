@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-HOST="${DEPLOY_HOST:-135.106.156.210}"
+HOST="${DEPLOY_HOST:-135.106.154.144}"
 USER="${DEPLOY_USER:-root}"
 REMOTE_DIR="/root/prompt-injection-competition"
 

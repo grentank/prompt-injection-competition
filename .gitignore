@@ -3,4 +3,6 @@ dist/
 data/
 *.sqlite
 .env
+deploy/server-restore/
+deploy/keys/
 .DS_Store

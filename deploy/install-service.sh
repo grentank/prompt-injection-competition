@@ -11,7 +11,5 @@ chmod +x "$PROJECT_DIR/deploy/setup-caddy.sh"
 cp "$PROJECT_DIR/deploy/pic.service" "/etc/systemd/system/$SERVICE_NAME"
 systemctl daemon-reload
 systemctl enable "$SERVICE_NAME"
-systemctl start "$SERVICE_NAME" || true
 
-echo "Installed and enabled $SERVICE_NAME"
-systemctl status "$SERVICE_NAME" --no-pager || true
+echo "Installed and enabled $SERVICE_NAME (starts on boot; this deploy already started containers)"

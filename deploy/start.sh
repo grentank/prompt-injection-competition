@@ -24,11 +24,6 @@ log "Starting PIC stack..."
 
 wait_for "Docker" "docker info" 30 2 || exit 1
 
-if ! wait_for "frontline network" "docker network inspect frontline" 60 2; then
-  log "Creating frontline network..."
-  docker network create frontline 2>/dev/null || true
-fi
-
 if ! docker network inspect pic-network >/dev/null 2>&1; then
   log "Creating pic-network..."
   docker network create pic-network 2>/dev/null || true
@@ -44,12 +39,8 @@ if ! docker image inspect pic-sandbox:latest >/dev/null 2>&1; then
   docker build -f docker/sandbox.Dockerfile -t pic-sandbox:latest .
 fi
 
-log "Starting pic-master via docker compose..."
+log "Starting pic-master and Caddy via docker compose..."
 docker compose -f deploy/docker-compose.yml up -d --build
-
-if [ -x deploy/setup-caddy.sh ]; then
-  deploy/setup-caddy.sh || log "Caddy setup skipped or failed (non-fatal)"
-fi
 
 # Restart exited sandbox containers (unless-stopped does not restart manually stopped ones)
 for name in $(docker ps -a --format '{{.Names}}' | grep '^pic-sandbox-' || true); do
@@ -68,6 +59,12 @@ if wait_for "pic-master HTTP" "curl -sf http://127.0.0.1:4000/" 15 2; then
 else
   log "WARNING: pic-master not responding on :4000"
   exit 1
+fi
+
+if wait_for "Caddy HTTP" "curl -sf -o /dev/null http://127.0.0.1/" 15 2; then
+  log "Caddy HTTP OK on :80"
+else
+  log "WARNING: Caddy not responding on :80"
 fi
 
 log "Done"

@@ -20,14 +20,24 @@ services:
       - SANDBOX_NETWORK=pic-network
     networks:
       - pic-network
-      - frontline
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: pic-caddy
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      - pic-network
+    depends_on:
+      - master
 
 networks:
   pic-network:
     name: pic-network
     driver: bridge
-  frontline:
-    external: true
 
 volumes:
   master_data:

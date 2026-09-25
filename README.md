@@ -51,12 +51,12 @@ git clone <repo> .
 cp deploy/.env.example deploy/.env
 # Заполнить секреты и LLM ключ
 
-./deploy/deploy.sh   # или вручную:
-docker build -f docker/sandbox.Dockerfile -t pic-sandbox:latest .
-docker compose -f deploy/docker-compose.yml up -d --build
-./deploy/setup-caddy.sh
-./deploy/install-service.sh   # автозапуск после reboot
+./deploy/remote-deploy.sh
 ```
+
+Пуш в `main` запускает `.github/workflows/deploy.yml`: Actions заходит по SSH и выполняет `deploy/remote-deploy.sh`. Секреты репозитория: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_GITHUB_TOKEN`.
+
+Сайт слушает HTTP на порту 80 (Caddy → `pic-master:4000`). HTTPS не обязателен: для `*.chickenkiller.com` Let's Encrypt часто упирается в лимит сертификатов.
 
 ### Автозапуск после reboot сервера
 
@@ -65,14 +65,14 @@ docker compose -f deploy/docker-compose.yml up -d --build
 ./deploy/install-service.sh    # один раз: systemd unit pic.service
 ```
 
-Скрипт `start.sh` ждёт Docker и сеть `frontline`, поднимает `pic-master`, чинит Caddy-конфиг и перезапускает упавшие sandbox-контейнеры.
+Скрипт `start.sh` ждёт Docker, поднимает `pic-master` и Caddy и перезапускает упавшие sandbox-контейнеры.
 
 
 ## Ресурсы
 
 - ~150–300 MB RAM на sandbox-контейнер
 - Рекомендуется 8+ GB RAM при 10+ одновременных участниках
-- Сервер: `135.106.156.210`, домен `temp-frontline-agent.ignorelist.com`
+- Сервер: `135.106.154.144`, домен `http://hacking-competition.chickenkiller.com`
 
 ## Учётные записи по умолчанию
 
