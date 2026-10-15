@@ -56,7 +56,7 @@ cp deploy/.env.example deploy/.env
 
 Пуш в `main` запускает `.github/workflows/deploy.yml`: Actions заходит по SSH и выполняет `deploy/remote-deploy.sh`. Секреты репозитория: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`. Репозиторий публичный, сервер делает `git fetch` без токена.
 
-Сайт слушает HTTP на порту 80 (Caddy → `pic-master:4000`). HTTPS не обязателен: для `*.chickenkiller.com` Let's Encrypt часто упирается в лимит сертификатов.
+Сайт слушает HTTPS. `deploy/setup-certbot.sh` выпускает сертификат Let's Encrypt в `/etc/letsencrypt` на сервере (в git ключи не попадают). HTTP на 80 перенаправляет на HTTPS. Caddy читает `fullchain.pem` и `privkey.pem` из этого каталога.
 
 ### Автозапуск после reboot сервера
 
@@ -72,7 +72,7 @@ cp deploy/.env.example deploy/.env
 
 - ~150–300 MB RAM на sandbox-контейнер
 - Рекомендуется 8+ GB RAM при 10+ одновременных участниках
-- Сервер: `135.106.154.144`, домен `http://hacking-competition.chickenkiller.com`
+- Сервер: `135.106.154.144`, домен `https://hacking-competition.chickenkiller.com`
 
 ## Учётные записи по умолчанию
 

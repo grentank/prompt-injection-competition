@@ -39,6 +39,10 @@ docker network inspect pic-network >/dev/null 2>&1 || docker network create pic-
 echo "==> Building sandbox image"
 docker build -f docker/sandbox.Dockerfile -t pic-sandbox:latest .
 
+echo "==> TLS certificate"
+chmod +x deploy/setup-certbot.sh deploy/certbot/pre-stop-caddy.sh deploy/certbot/post-start-caddy.sh
+deploy/setup-certbot.sh
+
 echo "==> Starting stack"
 docker compose -f deploy/docker-compose.yml up -d --build
 
@@ -47,11 +51,17 @@ if [ -f deploy/install-service.sh ]; then
   deploy/install-service.sh || echo "WARNING: systemd install failed"
 fi
 
-echo "==> Waiting for HTTP (up to 180s)"
+DOMAIN="${DEPLOY_DOMAIN:-hacking-competition.chickenkiller.com}"
+if [ -f deploy/.env ]; then
+  DOMAIN="$(grep -E '^DEPLOY_DOMAIN=' deploy/.env | tail -1 | cut -d= -f2- || true)"
+  DOMAIN="${DOMAIN:-hacking-competition.chickenkiller.com}"
+fi
+
+echo "==> Waiting for HTTPS (up to 180s)"
 deadline=$((SECONDS + 180))
 while true; do
-  if curl -sf --max-time 5 -o /dev/null http://127.0.0.1/; then
-    echo "HTTP OK on :80"
+  if curl -sf --max-time 5 --resolve "${DOMAIN}:443:127.0.0.1" "https://${DOMAIN}/" -o /dev/null; then
+    echo "HTTPS OK for ${DOMAIN}"
     exit 0
   fi
   if [ "$SECONDS" -ge "$deadline" ]; then
@@ -60,7 +70,7 @@ while true; do
   sleep 2
 done
 
-echo "ERROR: http://127.0.0.1/ did not become ready" >&2
+echo "ERROR: https://${DOMAIN}/ did not become ready" >&2
 docker compose -f deploy/docker-compose.yml ps || true
 docker logs pic-master --tail 80 || true
 docker logs pic-caddy --tail 80 || true

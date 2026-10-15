@@ -24,11 +24,16 @@ services:
   caddy:
     image: caddy:2-alpine
     container_name: pic-caddy
+    user: "0:0"
     restart: always
     ports:
       - "80:80"
+      - "443:443"
+      - "443:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/lib/pic/certbot-www:/var/www/certbot
     networks:
       - pic-network
     depends_on:
