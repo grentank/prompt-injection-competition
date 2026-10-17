@@ -7,3 +7,14 @@ body {
 .chat-input {
   field-sizing: content;
 }
+
+.agent-html {
+  overflow-wrap: anywhere;
+}
+
+.agent-html img,
+.agent-html video,
+.agent-html iframe {
+  max-width: 100%;
+  height: auto;
+}

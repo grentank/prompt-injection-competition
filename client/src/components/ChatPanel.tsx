@@ -7,6 +7,28 @@ type Message = { role: 'user' | 'assistant'; content: string };
 const MIN_INPUT_HEIGHT = 44;
 const MAX_INPUT_HEIGHT = 220;
 
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;|&#0*60;|&#x0*3c;/gi, '<')
+    .replace(/&gt;|&#0*62;|&#x0*3e;/gi, '>')
+    .replace(/&quot;|&#0*34;|&#x0*22;/gi, '"')
+    .replace(/&apos;|&#0*39;|&#x0*27;/gi, "'");
+}
+
+function renderAgentHtml(content: string): string {
+  const tags: string[] = [];
+  const shielded = decodeHtmlEntities(content).replace(/<\/?[a-zA-Z][^<>]*?>/g, (tag) => {
+    const normalized = tag.replace(/\\(["'])/g, '$1');
+    const token = `AGENTHTML${tags.length}TOKEN`;
+    tags.push(normalized);
+    return token;
+  });
+  const parsed = marked.parse(shielded, { async: false });
+  const html = typeof parsed === 'string' ? parsed : shielded;
+  return html.replace(/AGENTHTML(\d+)TOKEN/g, (_, index) => tags[Number(index)] ?? '');
+}
+
 export default function ChatPanel({ instanceId }: { instanceId: string }) {
   const [open, setOpen] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -148,8 +170,8 @@ export default function ChatPanel({ instanceId }: { instanceId: string }) {
           >
             {m.role === 'assistant' ? (
               <div
-                className="prose prose-invert prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: marked.parse(m.content) as string }}
+                className="agent-html prose prose-invert prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: renderAgentHtml(m.content) }}
               />
             ) : (
               <p className="whitespace-pre-wrap break-words">{m.content}</p>
