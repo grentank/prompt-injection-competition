@@ -28,13 +28,21 @@ install -m 755 deploy/certbot/post-start-caddy.sh /etc/letsencrypt/renewal-hooks
 if [ ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
   echo "==> Requesting certificate for ${DOMAIN}"
   docker stop pic-caddy >/dev/null 2>&1 || true
-  certbot certonly \
+  if ! certbot certonly \
     --standalone \
     --non-interactive \
     --agree-tos \
     --register-unsafely-without-email \
     --preferred-challenges http \
-    -d "$DOMAIN"
+    -d "$DOMAIN"; then
+    echo "WARNING: certificate was not issued (DNS probably does not point here yet)"
+    exit 0
+  fi
 else
   echo "==> Certificate already present for ${DOMAIN}"
+fi
+
+if [ -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ] && [ -f deploy/Caddyfile.https ]; then
+  cp deploy/Caddyfile.https deploy/Caddyfile
+  echo "==> Caddyfile switched to HTTPS"
 fi

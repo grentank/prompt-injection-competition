@@ -72,7 +72,7 @@ cp deploy/.env.example deploy/.env
 
 - ~150–300 MB RAM на sandbox-контейнер
 - Рекомендуется 8+ GB RAM при 10+ одновременных участниках
-- Сервер: `135.106.154.144`, домен `https://hacking-competition.chickenkiller.com`
+- Сервер: `87.228.114.45`, домен `hacking-competition.chickenkiller.com`
 
 ## Учётные записи по умолчанию
 

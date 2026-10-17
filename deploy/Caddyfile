@@ -3,17 +3,12 @@
 	admin off
 }
 
-http://hacking-competition.chickenkiller.com {
+:80 {
 	handle /.well-known/acme-challenge/* {
 		root * /var/www/certbot
 		file_server
 	}
 	handle {
-		redir https://hacking-competition.chickenkiller.com{uri} permanent
+		reverse_proxy pic-master:4000
 	}
-}
-
-https://hacking-competition.chickenkiller.com {
-	tls /etc/letsencrypt/live/hacking-competition.chickenkiller.com/fullchain.pem /etc/letsencrypt/live/hacking-competition.chickenkiller.com/privkey.pem
-	reverse_proxy pic-master:4000
 }
