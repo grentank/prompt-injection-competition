@@ -8,6 +8,7 @@ import ProductPage from './pages/ProductPage';
 import CartPage from './pages/CartPage';
 import OrdersPage from './pages/OrdersPage';
 import DiacriticsPage from './pages/DiacriticsPage';
+import HintsPage from './pages/HintsPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('pic_token');
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="cart" element={<CartPage />} />
         <Route path="orders" element={<OrdersPage />} />
         <Route path="diacritics" element={<DiacriticsPage />} />
+        <Route path="hints" element={<HintsPage />} />
         <Route index element={<Navigate to="main" replace />} />
       </Route>
       <Route path="/" element={<Navigate to="/login" replace />} />

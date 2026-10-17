@@ -40,6 +40,7 @@ export default function InstanceLayout() {
               <Link to={`/instance/${instanceId}/cart`} className="hover:text-white">Корзина</Link>
               <Link to={`/instance/${instanceId}/orders`} className="hover:text-white">Заказы</Link>
               <Link to={`/instance/${instanceId}/diacritics`} className="hover:text-white">Диакритики</Link>
+              <Link to={`/instance/${instanceId}/hints`} className="hover:text-white">Подсказки</Link>
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">
