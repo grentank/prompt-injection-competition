@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useParams } from 'react-router';
 
 const LATIN_MARKS = ['\u0301', '\u0300', '\u0302', '\u0303', '\u0308', '\u0304', '\u030A', '\u030B', '\u030C', '\u0327'];
 const CYRILLIC_MARKS = ['\u0306', '\u030F', '\u0311', '\u0304', '\u0307', '\u0308', '\u0331', '\u0323', '\u0302', '\u030C'];
@@ -24,6 +24,7 @@ function zalgo(text: string) {
 }
 
 export default function DiacriticsPage() {
+  const { instanceId } = useParams();
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
   const [copied, setCopied] = useState(false);
@@ -36,11 +37,10 @@ export default function DiacriticsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6">
-      <div className="max-w-2xl mx-auto space-y-4">
+    <div className="max-w-2xl space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-cyan-400">Диакритики</h1>
-          <Link to="/login" className="text-sm text-zinc-500 hover:text-white">В магазин</Link>
+          <Link to={`/instance/${instanceId}/main`} className="text-sm text-zinc-500 hover:text-white">В магазин</Link>
         </div>
         <p className="text-sm text-zinc-400">
           На букву навешивается одна или две случайные диакритики. Для латиницы и кириллицы наборы разные.
@@ -72,7 +72,6 @@ export default function DiacriticsPage() {
         >
           {copied ? 'Скопировано' : 'Копировать'}
         </button>
-      </div>
     </div>
   );
 }

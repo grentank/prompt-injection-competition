@@ -18,7 +18,6 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/diacritics" element={<DiacriticsPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/admin" element={<AdminPage />} />
@@ -34,6 +33,7 @@ export default function App() {
         <Route path="product/:productId" element={<ProductPage />} />
         <Route path="cart" element={<CartPage />} />
         <Route path="orders" element={<OrdersPage />} />
+        <Route path="diacritics" element={<DiacriticsPage />} />
         <Route index element={<Navigate to="main" replace />} />
       </Route>
       <Route path="/" element={<Navigate to="/login" replace />} />
