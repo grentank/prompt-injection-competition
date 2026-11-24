@@ -34,8 +34,6 @@ path.write_text("\n".join(lines) + "\n")
 print("LLM env synced into deploy/.env")
 PY
 
-docker network inspect pic-network >/dev/null 2>&1 || docker network create pic-network
-
 echo "==> Building sandbox image"
 docker build -f docker/sandbox.Dockerfile -t pic-sandbox:latest .
 

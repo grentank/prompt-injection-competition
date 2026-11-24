@@ -24,11 +24,6 @@ log "Starting PIC stack..."
 
 wait_for "Docker" "docker info" 30 2 || exit 1
 
-if ! docker network inspect pic-network >/dev/null 2>&1; then
-  log "Creating pic-network..."
-  docker network create pic-network 2>/dev/null || true
-fi
-
 if [ ! -f deploy/.env ]; then
   log "Creating deploy/.env from example"
   cp deploy/.env.example deploy/.env
